@@ -1,61 +1,106 @@
-import { mockDenuncias } from '../../data/mockDenuncias';
+import { Link } from 'react-router-dom';
+import PageHeader from '../../components/PageHeader';
+import Icon from '../../components/Icon';
+import { CritBadge } from '../../components/Badges';
+import { kpis, recorrencias } from '../../data/mockDashboard';
+import { feedDenunciasHoje } from '../../data/mockDenuncias';
+import { critMeta } from '../../data/criticidade';
 import './Dashboard.css';
 
 export default function Dashboard() {
   return (
     <section>
-      <header className="dashboard-header">
-        <h2>Dashboard</h2>
-        <p>Visão geral inicial do módulo frontend com dados mockados.</p>
-      </header>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Monitoramento e triagem inteligente das denúncias urbanas em Recife."
+      />
 
-      <div className="cards">
-        <div className="card">
-          <span>Total de denúncias</span>
-          <strong>{mockDenuncias.length}</strong>
-        </div>
-
-        <div className="card">
-          <span>Alta prioridade</span>
-          <strong>
-            {mockDenuncias.filter((denuncia) => denuncia.prioridade === 'Alta').length}
-          </strong>
-        </div>
-
-        <div className="card">
-          <span>Em análise</span>
-          <strong>
-            {mockDenuncias.filter((denuncia) => denuncia.status === 'Em análise').length}
-          </strong>
-        </div>
+      <div className="kpi-grid">
+        {kpis.map((k) => (
+          <div key={k.id} className={`kpi kpi-${k.tom}`}>
+            <span className="kpi-label">{k.label}</span>
+            <strong className="kpi-value tnum">{k.valor}</strong>
+            <span className="kpi-note">{k.nota}</span>
+          </div>
+        ))}
       </div>
 
-      <div className="table-card">
-        <h3>Denúncias recentes</h3>
+      <div className="dash-grid">
+        {/* Feed do dia */}
+        <div className="card-surface dash-feed">
+          <div className="card-head">
+            <h2>Chegando hoje</h2>
+            <Link to="/denuncias" className="link-more">
+              Ver todas <Icon name="arrowRight" size={15} />
+            </Link>
+          </div>
+          <ul className="feed-list">
+            {feedDenunciasHoje.map((d, i) => {
+              const m = critMeta(d.criticidade);
+              return (
+                <li key={i} className="feed-item">
+                  <span className="feed-bar" style={{ background: m.color }} />
+                  <div className="feed-body">
+                    <p className="feed-text">{d.texto}</p>
+                    <div className="feed-meta">
+                      <span>
+                        <Icon name="pin" size={13} /> {d.bairro}
+                      </span>
+                      <span className="tnum">
+                        <Icon name="clock" size={13} /> {d.hora}
+                      </span>
+                    </div>
+                  </div>
+                  <CritBadge nivel={d.criticidade} />
+                </li>
+              );
+            })}
+          </ul>
+        </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Título</th>
-              <th>Bairro</th>
-              <th>Prioridade</th>
-              <th>Status</th>
-              <th>Órgão</th>
-            </tr>
-          </thead>
+        <div className="dash-side">
+          {/* Pendências de revisão (IA) */}
+          <div className="card-surface review-card">
+            <span className="review-icon" aria-hidden="true">
+              <Icon name="cpu" size={20} />
+            </span>
+            <strong className="review-num tnum">17</strong>
+            <span className="review-label">denúncias pendentes de revisão</span>
+            <p className="review-desc">
+              A IA classificou um assunto diferente do que o cidadão informou. Confirme
+              o destino antes de encaminhar.
+            </p>
+            <Link to="/denuncias?filtro=pendentes" className="btn btn-ia">
+              Revisar pendências <Icon name="arrowRight" size={16} />
+            </Link>
+          </div>
 
-          <tbody>
-            {mockDenuncias.map((denuncia) => (
-              <tr key={denuncia.id}>
-                <td>{denuncia.titulo}</td>
-                <td>{denuncia.bairro}</td>
-                <td>{denuncia.prioridade}</td>
-                <td>{denuncia.status}</td>
-                <td>{denuncia.orgaoResponsavel}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          {/* Recorrência */}
+          <div className="card-surface">
+            <div className="card-head">
+              <h2>
+                <Icon name="repeat" size={16} /> Alertas de recorrência
+              </h2>
+            </div>
+            <ul className="rec-list">
+              {recorrencias.map((r, i) => (
+                <li key={i} className="rec-item">
+                  <div className="rec-info">
+                    <strong>{r.bairro}</strong>
+                    <span>{r.categoria}</span>
+                  </div>
+                  <div className="rec-side">
+                    <span className="rec-count tnum">{r.count}×</span>
+                    <CritBadge nivel={r.criticidade} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <Link to="/mapa" className="link-more rec-foot">
+              Ver mapa de criticidade <Icon name="arrowRight" size={15} />
+            </Link>
+          </div>
+        </div>
       </div>
     </section>
   );

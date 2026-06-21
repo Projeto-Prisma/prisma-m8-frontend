@@ -1,18 +1,66 @@
-# PRISMA - Conecta Recife - Frontend
+# Prisma — Painel da Ouvidoria
 
-Módulo frontend do sistema distribuído Conecta Recife.
+Painel administrativo da Ouvidoria de Recife para **triagem inteligente de denúncias urbanas**.
 
-Este módulo será responsável pela interface web de acompanhamento das denúncias, indicadores, mapa de ocorrências, órgãos públicos e notificações.
 
-## Tecnologias
-
-- React
-- Vite
-- JavaScript
-- Dados mockados inicialmente
-
-## Como executar
+## Como rodar
 
 ```bash
 npm install
-npm run dev
+npm run dev      # ambiente de desenvolvimento (http://localhost:5173)
+```
+
+Outros scripts:
+
+```bash
+npm run build    # build de produção em dist/
+npm run preview  # serve o build de produção
+npm run lint     # ESLint
+```
+
+> Requer Node.js 18+.
+
+## Telas
+
+| Rota             | Tela              | O que mostra |
+|------------------|-------------------|--------------|
+| `/`              | Dashboard         | KPIs do dia, feed "chegando hoje", pendências de revisão e alertas de recorrência |
+| `/mapa`          | Mapa              | Mapa esquemático de criticidade por bairro (bolhas dimensionadas por volume) |
+| `/denuncias`     | Denúncias         | Lista com filtros (todas / pendentes / encaminhadas), busca e divergência cidadão↔IA |
+| `/denuncias/:proto` | Detalhe        | Texto da manifestação, veredito da IA, linha do tempo da triagem e encaminhamento |
+| `/orgaos`        | Órgãos Públicos   | Ranking de encaminhamentos e cadastro de órgãos com categorias e ativação |
+| `/notificacoes`  | Notificações      | Feed por tipo (pendência, crítica, recorrência, encaminhamento, sistema) |
+
+## Estrutura
+
+```
+src/
+├── main.jsx                 # ponto de entrada
+├── App.jsx                  # BrowserRouter + AppLayout + rotas
+├── index.css                # base global
+├── styles/theme.css         # tokens de design (cores, criticidade, espaçamento)
+├── routes/AppRoutes.jsx     # definição das rotas
+├── layouts/                 # AppLayout (sidebar + área de conteúdo)
+├── components/              # Icon, Badges (criticidade/status/IA), PageHeader
+├── data/                    # dados mockados (denúncias, dashboard, órgãos, notificações)
+└── pages/                   # Dashboard, Mapa, Denuncias, Orgaos, Notificacoes
+```
+
+## Sistema de design
+
+Identidade reaproveitada do protótipo Prisma Recife:
+
+- **Marca:** azul Recife `#005AA7` (sidebar escura `#003B6F`)
+- **Criticidade:** Crítico `#D62828` · Alto `#E1742A` · Médio `#E9A23B` · Baixo `#2A9D8F`
+- **Divergência da IA / revisão:** roxo `#7A4FBF`
+- **Encaminhado:** verde `#2A9D8F`
+
+Os tokens ficam centralizados em `src/styles/theme.css`.
+
+## Observações
+
+- Os dados (denúncias, KPIs, órgãos, notificações) vivem em `src/data/` e são fixos.
+- Interações como marcar notificação como lida, ativar/desativar órgão e filtrar
+  denúncias funcionam **em memória** (estado do React), sem persistência.
+- As posições do mapa são aproximadas e servem apenas à visualização — não são
+  coordenadas geográficas reais.

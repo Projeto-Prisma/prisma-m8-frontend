@@ -1,0 +1,46 @@
+:root {
+  /* Marca — azul Recife */
+  --brand: #005aa7;
+  --brand-700: #004a8c;
+  --brand-900: #003b6f;
+  --brand-tint: #e8f0fe;
+
+  /* Superfícies e texto */
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --ink: #1b2632;
+  --muted: #636f7d;
+  --line: #dee3e8;
+  --line-soft: #eef1f4;
+
+  /* Criticidade */
+  --crit-critico: #d62828;
+  --crit-critico-bg: #fff5f5;
+  --crit-alto: #e1742a;
+  --crit-alto-bg: #fff3e0;
+  --crit-medio: #e9a23b;
+  --crit-medio-bg: #fff8e1;
+  --crit-baixo: #2a9d8f;
+  --crit-baixo-bg: #e8f5e4;
+
+  /* Divergência / revisão da IA (roxo) */
+  --ia: #7a4fbf;
+  --ia-bg: #ede7ff;
+  --ia-bg-soft: #fbf8ff;
+  --ia-line: #e8deff;
+
+  /* Encaminhado (verde) */
+  --ok: #2a9d8f;
+  --ok-bg: #e8f5e4;
+
+  /* Raios e sombras */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(27, 38, 50, 0.06);
+  --shadow-md: 0 6px 20px rgba(27, 38, 50, 0.08);
+
+  /* Tipografia */
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+}

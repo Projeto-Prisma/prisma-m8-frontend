@@ -5,17 +5,22 @@ import Denuncias from '../pages/Denuncias/Denuncias';
 import DenunciaDetalhe from '../pages/Denuncias/DenunciaDetalhe';
 import Orgaos from '../pages/Orgaos/Orgaos';
 import Notificacoes from '../pages/Notificacoes/Notificacoes';
+import Login from '../pages/Login/Login';
 
-export default function AppRoutes() {
+export default function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
+  const requireAuth = (element) =>
+    isAuthenticated ? element : <Navigate to="/login" replace />;
+
   return (
     <Routes>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/mapa" element={<Mapa />} />
-      <Route path="/denuncias" element={<Denuncias />} />
-      <Route path="/denuncias/:proto" element={<DenunciaDetalhe />} />
-      <Route path="/orgaos" element={<Orgaos />} />
-      <Route path="/notificacoes" element={<Notificacoes />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/login" element={<Login isAuthenticated={isAuthenticated} onLogin={onLogin} />} />
+      <Route path="/" element={requireAuth(<Dashboard />)} />
+      <Route path="/mapa" element={requireAuth(<Mapa />)} />
+      <Route path="/denuncias" element={requireAuth(<Denuncias />)} />
+      <Route path="/denuncias/:proto" element={requireAuth(<DenunciaDetalhe />)} />
+      <Route path="/orgaos" element={requireAuth(<Orgaos />)} />
+      <Route path="/notificacoes" element={requireAuth(<Notificacoes />)} />
+      <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
     </Routes>
   );
 }

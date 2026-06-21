@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import Icon from '../components/Icon';
+import Logo from '../components/Logo';
 import { notificacoes } from '../data/mockNotificacoes';
 import './AppLayout.css';
 
@@ -11,15 +12,16 @@ const NAV = [
   { to: '/notificacoes', label: 'Notificações', icon: 'bell' },
 ];
 
-export default function AppLayout({ children }) {
+export default function AppLayout({ children, onLogout }) {
   const naoLidas = notificacoes.filter((n) => !n.lida).length;
+  const navigate = useNavigate();
 
   return (
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
-            <Icon name="pin" size={22} strokeWidth={2} />
+            <Logo width={28} height={28} />
           </span>
           <span className="brand-text">
             <strong>Prisma Recife</strong>
@@ -52,7 +54,15 @@ export default function AppLayout({ children }) {
               <small>Prefeitura do Recife</small>
             </span>
           </div>
-          <button className="logout-btn" type="button" title="Sair (mockado)">
+          <button
+            className="logout-btn"
+            type="button"
+            title="Sair (mockado)"
+            onClick={() => {
+              onLogout?.();
+              navigate('/login');
+            }}
+          >
             <Icon name="logout" size={18} />
           </button>
         </div>

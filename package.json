@@ -1,8 +1,9 @@
 {
-  "name": "prisma-m8-frontend",
+  "name": "prisma-recife",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
+  "description": "Painel da Ouvidoria de Recife — triagem inteligente de denúncias urbanas (dados mockados).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

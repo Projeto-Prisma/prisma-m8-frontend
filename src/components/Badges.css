@@ -1,0 +1,101 @@
+/* Cartão branco padrão */
+.card-surface {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Etiquetas */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 5px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.crit-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.status-badge {
+  font-weight: 600;
+}
+
+/* Barra de confiança */
+.confbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.confbar-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line-soft);
+  overflow: hidden;
+}
+.confbar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+.confbar-num {
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 38px;
+  text-align: right;
+}
+
+/* Veredito da IA */
+.ia-veredito {
+  border-radius: var(--r-sm);
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.ia-veredito.is-divergente {
+  background: var(--ia-bg-soft);
+  border-color: var(--ia-line);
+}
+.ia-veredito.compact {
+  padding: 12px 14px;
+}
+.ia-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ia-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.ia-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ia-value.ia-strong {
+  color: var(--ia);
+}
+.is-ok .ia-value.ia-strong {
+  color: var(--ok);
+}
+.ia-arrow {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 6px 0 6px 2px;
+  opacity: 0.7;
+}

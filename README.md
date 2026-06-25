@@ -22,6 +22,22 @@ npm run lint     # ESLint
 
 ## Telas
 
+O sistema tem duas faces que compartilham a mesma identidade visual: o **portal
+público** do cidadão (sem login) e o **painel da gestão** (área restrita).
+
+### Portal público (cidadão)
+
+| Rota           | Tela                | O que mostra |
+|----------------|---------------------|--------------|
+| `/portal`      | Home                | Página inicial: hero, "como funciona" (registro → IA → órgão), números e chamadas para ação |
+| `/denunciar`   | Fazer denúncia      | Formulário em 4 passos (dados → anexo/localização → revisão → protocolo) com validação e contador de caracteres |
+| `/acompanhar`  | Acompanhar denúncia | Consulta por número de protocolo, com linha do tempo da triagem (lê as mesmas denúncias do painel) |
+
+> O portal é navegável sem autenticação. O botão **"Área restrita"** leva ao
+> login da gestão; o login tem o atalho **"Voltar ao portal público"**.
+
+### Painel da gestão (área restrita)
+
 | Rota             | Tela              | O que mostra |
 |------------------|-------------------|--------------|
 | `/`              | Dashboard         | KPIs do dia, feed "chegando hoje", pendências de revisão e alertas de recorrência |
@@ -41,9 +57,9 @@ src/
 ├── styles/theme.css         # tokens de design (cores, criticidade, espaçamento)
 ├── routes/AppRoutes.jsx     # definição das rotas
 ├── layouts/                 # AppLayout (sidebar + área de conteúdo)
-├── components/              # Icon, Badges (criticidade/status/IA), PageHeader
-├── data/                    # dados mockados (denúncias, dashboard, órgãos, notificações)
-└── pages/                   # Dashboard, Mapa, Denuncias, Orgaos, Notificacoes
+├── components/              # Icon, Badges (criticidade/status/IA), PageHeader, PublicTopbar
+├── data/                    # dados mockados (denúncias, dashboard, órgãos, notificações, protocolo)
+└── pages/                   # Portal/Home, Denunciar, Acompanhar (público) + Dashboard, Mapa, Denuncias, Orgaos, Notificacoes, Login
 ```
 
 ## Sistema de design

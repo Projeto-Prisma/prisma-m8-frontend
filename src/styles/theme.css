@@ -5,6 +5,11 @@
   --brand-900: #003b6f;
   --brand-tint: #e8f0fe;
 
+  /* Acento — laranja (portal público / CTA do cidadão) */
+  --accent: #f29c12;
+  --accent-700: #d98b0e;
+  --accent-tint: #fff3e0;
+
   /* Superfícies e texto */
   --bg: #f5f6f8;
   --surface: #ffffff;

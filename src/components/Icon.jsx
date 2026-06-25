@@ -134,6 +134,65 @@ const PATHS = {
     </>
   ),
   dot: <circle cx="12" cy="12" r="4" />,
+  plus: (
+    <>
+      <path d="M12 5v14M5 12h14" />
+    </>
+  ),
+  sparkles: (
+    <>
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
+    </>
+  ),
+  edit: (
+    <>
+      <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5" />
+      <path d="M17.5 2.5a2.1 2.1 0 1 1 3 3L12 14l-4 1 1-4Z" />
+    </>
+  ),
+  send: (
+    <>
+      <path d="M22 2 11 13" />
+      <path d="M22 2l-7 20-4-9-9-4 20-7Z" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+      <circle cx="12" cy="13" r="3" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    </>
+  ),
+  chevronDown: (
+    <>
+      <path d="M6 9l6 6 6-6" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5M12 8h.01" />
+    </>
+  ),
+  contrast: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3a9 9 0 0 1 0 18Z" />
+    </>
+  ),
+  hand: (
+    <>
+      <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V10" />
+      <path d="M12 10V4.5a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M15 11V6a1.5 1.5 0 0 1 3 0v7a6 6 0 0 1-6 6h-1a6 6 0 0 1-4.7-2.3L4 16a1.6 1.6 0 0 1 2.4-2L9 15" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 20, strokeWidth = 1.8, className = '', style }) {

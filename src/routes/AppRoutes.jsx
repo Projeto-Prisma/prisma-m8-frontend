@@ -6,6 +6,9 @@ import DenunciaDetalhe from '../pages/Denuncias/DenunciaDetalhe';
 import Orgaos from '../pages/Orgaos/Orgaos';
 import Notificacoes from '../pages/Notificacoes/Notificacoes';
 import Login from '../pages/Login/Login';
+import Home from '../pages/Portal/Home';
+import Denunciar from '../pages/Denunciar/Denunciar';
+import Acompanhar from '../pages/Acompanhar/Acompanhar';
 
 export default function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
   const requireAuth = (element) =>
@@ -13,6 +16,12 @@ export default function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
 
   return (
     <Routes>
+      {/* Portal público do cidadão (sem autenticação, sem sidebar) */}
+      <Route path="/portal" element={<Home />} />
+      <Route path="/denunciar" element={<Denunciar />} />
+      <Route path="/acompanhar" element={<Acompanhar />} />
+
+      {/* Área restrita da gestão */}
       <Route path="/login" element={<Login isAuthenticated={isAuthenticated} onLogin={onLogin} />} />
       <Route path="/" element={requireAuth(<Dashboard />)} />
       <Route path="/mapa" element={requireAuth(<Mapa />)} />

@@ -5,7 +5,9 @@ import AppRoutes from './routes/AppRoutes';
 
 function AppContent({ isAuthenticated, onLogin, onLogout }) {
   const location = useLocation();
-  const showLayout = location.pathname !== '/login';
+  // Rotas públicas (portal do cidadão) e o login não usam o layout do painel.
+  const standalonePaths = ['/login', '/portal', '/denunciar', '/acompanhar'];
+  const showLayout = !standalonePaths.includes(location.pathname);
 
   return showLayout ? (
     <AppLayout onLogout={onLogout}>

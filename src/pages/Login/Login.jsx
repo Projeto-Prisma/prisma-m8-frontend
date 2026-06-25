@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, Link } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import Logo from '../../components/Logo';
 import { mockUser } from '../../data/mockUser';
@@ -125,7 +125,7 @@ export default function Login({ isAuthenticated, onLogin }) {
             </button>
           </form>
           <div className="login-bottom">
-            <a href="#" className="login-back">← Voltar ao portal público</a>
+            <Link to="/portal" className="login-back">← Voltar ao portal público</Link>
           </div>
         </div>
       </main>

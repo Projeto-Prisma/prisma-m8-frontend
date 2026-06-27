@@ -180,6 +180,11 @@ const PATHS = {
       <path d="M12 11v5M12 8h.01" />
     </>
   ),
+  x: (
+    <>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </>
+  ),
   contrast: (
     <>
       <circle cx="12" cy="12" r="9" />

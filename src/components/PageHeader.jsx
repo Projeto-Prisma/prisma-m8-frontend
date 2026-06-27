@@ -2,7 +2,7 @@ import Icon from './Icon';
 import './PageHeader.css';
 
 // Cabeçalho de página: título, subtítulo e ações opcionais (busca / filtros).
-export default function PageHeader({ title, subtitle, search, onSearch, actions, children }) {
+export default function PageHeader({ title, subtitle, search, onSearch, searchPlaceholder, actions, children }) {
   return (
     <header className="page-header">
       <div className="page-header-text">
@@ -19,7 +19,7 @@ export default function PageHeader({ title, subtitle, search, onSearch, actions,
                 type="search"
                 value={search}
                 onChange={(e) => onSearch?.(e.target.value)}
-                placeholder="Buscar por protocolo, bairro ou assunto"
+                placeholder={searchPlaceholder ?? 'Buscar por protocolo, bairro ou assunto'}
                 aria-label="Buscar"
               />
             </label>

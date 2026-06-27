@@ -10,13 +10,13 @@ import {
   GENEROS,
   ONDES,
 } from '../../data/mockProtocolo';
+import { submitDenuncia } from '../../services/denunciasService';
 import './Denunciar.css';
 
 const STEP_LABELS = ['Dados da Manifestação', 'Incluir Anexo', 'Revise os Dados', 'Protocolo'];
 const DESC_MAX = 600;
 
 const novoCaptcha = () => String(Math.floor(10000 + Math.random() * 90000));
-const novoProtocolo = () => `2025-${String(Math.floor(74000 + Math.random() * 5999)).padStart(6, '0')}`;
 
 const FORM_INICIAL = {
   nome: '',
@@ -44,6 +44,7 @@ export default function Denunciar() {
   const [foto, setFoto] = useState(null); // { name, url }
   const [erro, setErro] = useState('');
   const [proto, setProto] = useState(null);
+  const [enviando, setEnviando] = useState(false);
 
   const anon = tipo === 'anonimo';
   const set = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }));
@@ -69,18 +70,46 @@ export default function Denunciar() {
     return '';
   };
 
-  const avancar = () => {
+  const avancar = async () => {
     if (step === 0) {
       const msg = validarStep0();
-      if (msg) {
-        setErro(msg);
-        return;
-      }
+      if (msg) { setErro(msg); return; }
     }
     setErro('');
+
     if (step === 2) {
-      setProto(novoProtocolo());
+      setEnviando(true);
+      try {
+        const payload = {
+          assunto: form.assunto,
+          descricao: form.descricao,
+          onde: form.onde,
+          protocoloAnterior: form.protoAnterior || null,
+          manifestante: {
+            tipo: tipo.toUpperCase(),
+            sigilo,
+            nome: form.nome || null,
+            profissao: form.profissao || null,
+            tipoDoc: form.tipoDoc || null,
+            numeroDoc: form.numeroDoc || null,
+            sexo: form.sexo || null,
+            genero: form.genero || null,
+            celular: form.celular || null,
+            email: form.email || null,
+          },
+        };
+        const resultado = await submitDenuncia(payload);
+        setProto(resultado.protocolo);
+        setStep(3);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (e) {
+        setErro(`Erro ao registrar: ${e.message}`);
+      } finally {
+        setEnviando(false);
+      }
+      return;
     }
+
     setStep((s) => Math.min(3, s + 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -380,12 +409,17 @@ export default function Denunciar() {
               Ao confirmar, sua denúncia será processada automaticamente pela IA. Você receberá um
               número de protocolo para acompanhamento.
             </div>
+            {erro && (
+              <div className="den-error">
+                <Icon name="alert" size={17} /> {erro}
+              </div>
+            )}
             <div className="den-actions den-actions-between">
               <button type="button" className="den-btn-ghost" onClick={voltar}>
                 ← Voltar
               </button>
-              <button type="button" className="den-btn-primary" onClick={avancar}>
-                Confirmar e enviar
+              <button type="button" className="den-btn-primary" onClick={avancar} disabled={enviando}>
+                {enviando ? 'Enviando…' : 'Confirmar e enviar'}
               </button>
             </div>
           </div>

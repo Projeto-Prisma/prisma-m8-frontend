@@ -1,15 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import Icon from '../../components/Icon';
 import { CritBadge, StatusBadge } from '../../components/Badges';
-import { mockDenuncias, temDivergencia } from '../../data/mockDenuncias';
-import { critMeta, PESO_CRITICIDADE } from '../../data/criticidade';
+import { fetchDenuncias, normalizarDenuncia } from '../../services/denunciasService';
 import './Denuncias.css';
 
 const FILTROS = [
-  { id: 'todas', label: 'Todas' },
-  { id: 'pendentes', label: 'Pendentes de revisão' },
+  { id: 'todas',        label: 'Todas' },
+  { id: 'pendentes',    label: 'Pendentes de revisão' },
   { id: 'encaminhadas', label: 'Encaminhadas' },
 ];
 
@@ -18,35 +17,41 @@ export default function Denuncias() {
   const filtro = params.get('filtro') || 'todas';
   const [busca, setBusca] = useState('');
 
-  const contagens = useMemo(
-    () => ({
-      todas: mockDenuncias.length,
-      pendentes: mockDenuncias.filter((d) => d.status === 'Pendente de revisão').length,
-      encaminhadas: mockDenuncias.filter((d) => d.status === 'Encaminhada').length,
-    }),
-    []
-  );
+  const [denuncias, setDenuncias] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [erro, setErro]           = useState(null);
+
+  useEffect(() => {
+    fetchDenuncias()
+      .then((lista) => setDenuncias(lista.map(normalizarDenuncia)))
+      .catch((e) => setErro(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const contagens = useMemo(() => ({
+    todas:        denuncias.length,
+    pendentes:    denuncias.filter((d) => d.statusRaw === 'PENDENTE_DE_REVISAO').length,
+    encaminhadas: denuncias.filter((d) => d.statusRaw === 'ENCAMINHADA').length,
+  }), [denuncias]);
 
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return mockDenuncias
+    return denuncias
       .filter((d) => {
-        if (filtro === 'pendentes') return d.status === 'Pendente de revisão';
-        if (filtro === 'encaminhadas') return d.status === 'Encaminhada';
+        if (filtro === 'pendentes')    return d.statusRaw === 'PENDENTE_DE_REVISAO';
+        if (filtro === 'encaminhadas') return d.statusRaw === 'ENCAMINHADA';
         return true;
       })
       .filter((d) => {
         if (!q) return true;
         return (
           d.proto.toLowerCase().includes(q) ||
-          d.bairro.toLowerCase().includes(q) ||
+          d.onde.toLowerCase().includes(q) ||
           d.assuntoCid.toLowerCase().includes(q) ||
-          d.assuntoIA.toLowerCase().includes(q) ||
           d.texto.toLowerCase().includes(q)
         );
-      })
-      .sort((a, b) => PESO_CRITICIDADE[b.criticidade] - PESO_CRITICIDADE[a.criticidade]);
-  }, [filtro, busca]);
+      });
+  }, [filtro, busca, denuncias]);
 
   const setFiltro = (id) => {
     if (id === 'todas') setParams({});
@@ -57,9 +62,14 @@ export default function Denuncias() {
     <section>
       <PageHeader
         title="Denúncias"
-        subtitle="Manifestações registradas pelos cidadãos, com a classificação automática da IA."
+        subtitle={
+          loading ? 'Carregando...'
+          : erro    ? `Erro: ${erro}`
+          : 'Manifestações registradas pelos cidadãos.'
+        }
         search={busca}
         onSearch={setBusca}
+        searchPlaceholder="Buscar por protocolo, local ou assunto"
       />
 
       <div className="filters" role="tablist" aria-label="Filtrar denúncias">
@@ -72,18 +82,25 @@ export default function Denuncias() {
             onClick={() => setFiltro(f.id)}
           >
             {f.label}
-            <span className="filter-count tnum">{contagens[f.id]}</span>
+            <span className="filter-count tnum">{contagens[f.id] ?? 0}</span>
           </button>
         ))}
       </div>
 
       <div className="den-list">
-        {lista.map((d) => {
-          const m = critMeta(d.criticidade);
-          const divergente = temDivergencia(d);
+        {loading && <p style={{ padding: '24px', color: 'var(--muted)' }}>Carregando denúncias…</p>}
+
+        {!loading && lista.map((d) => {
+          const temIA       = Boolean(d.assuntoIA);
+          const divergente  = temIA && d.assuntoCid !== d.assuntoIA;
+
           return (
             <Link key={d.proto} to={`/denuncias/${d.proto}`} className="den-row">
-              <span className="den-bar" style={{ background: m.color }} />
+              {/* barra lateral — cinza quando criticidade ainda não chegou do M3 */}
+              <span
+                className="den-bar"
+                style={{ background: d.criticidade ? undefined : 'var(--line)' }}
+              />
 
               <div className="den-main">
                 <div className="den-top">
@@ -93,31 +110,38 @@ export default function Denuncias() {
                 <p className="den-text">{d.texto}</p>
                 <div className="den-tags">
                   <span className="den-tag">
-                    <Icon name="pin" size={13} /> {d.bairro}
+                    <Icon name="pin" size={13} /> {d.onde}
                   </span>
-                  <span className="den-tag">
-                    <Icon name="building" size={13} /> {d.orgao}
-                  </span>
+                  {d.orgao && (
+                    <span className="den-tag">
+                      <Icon name="building" size={13} /> {d.orgao}
+                    </span>
+                  )}
                 </div>
               </div>
 
               <div className="den-ia">
-                <div className={`ia-pill ${divergente ? 'is-div' : 'is-ok'}`}>
-                  <Icon name="cpu" size={13} />
-                  <span>{d.assuntoIA}</span>
-                </div>
-                {divergente ? (
-                  <span className="ia-note ia-note-div">≠ {d.assuntoCid}</span>
+                {temIA ? (
+                  <>
+                    <div className={`ia-pill ${divergente ? 'is-div' : 'is-ok'}`}>
+                      <Icon name="cpu" size={13} />
+                      <span>{d.assuntoIA}</span>
+                    </div>
+                    {divergente
+                      ? <span className="ia-note ia-note-div">≠ {d.assuntoCid}</span>
+                      : <span className="ia-note ia-note-ok">confirma o cidadão</span>}
+                    <span className="ia-conf tnum">{d.confianca}% confiança</span>
+                  </>
                 ) : (
-                  <span className="ia-note ia-note-ok">confirma o cidadão</span>
+                  <div className="ia-pill ia-pill-pending">
+                    <Icon name="cpu" size={13} />
+                    <span>Aguardando M2</span>
+                  </div>
                 )}
-                <span className="ia-conf tnum" style={{ color: divergente ? 'var(--ia)' : 'var(--ok)' }}>
-                  {d.confianca}% confiança
-                </span>
               </div>
 
               <div className="den-end">
-                <CritBadge nivel={d.criticidade} />
+                {d.criticidade && <CritBadge nivel={d.criticidade} />}
                 <StatusBadge status={d.status} />
                 <Icon name="arrowRight" size={18} className="den-chevron" />
               </div>
@@ -125,7 +149,7 @@ export default function Denuncias() {
           );
         })}
 
-        {lista.length === 0 && (
+        {!loading && lista.length === 0 && (
           <div className="den-empty">
             <Icon name="search" size={28} />
             <p>Nenhuma denúncia encontrada para esse filtro.</p>

@@ -146,6 +146,10 @@
   background: var(--ok-bg);
   color: var(--ok);
 }
+.ia-pill.ia-pill-pending {
+  background: var(--line-soft);
+  color: var(--muted);
+}
 .ia-note {
   font-size: 11.5px;
   font-weight: 500;

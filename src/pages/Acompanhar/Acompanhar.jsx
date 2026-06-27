@@ -1,42 +1,95 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PublicTopbar from '../../components/PublicTopbar';
 import Icon from '../../components/Icon';
-import { getDenuncia } from '../../data/mockDenuncias';
-import { critMeta } from '../../data/criticidade';
-import { timelineFromDenuncia } from '../../data/mockProtocolo';
+import { fetchDenunciaPorProtocolo, STATUS_LABEL, formatarData } from '../../services/denunciasService';
 import './Acompanhar.css';
 
-const PROTO_DEMO = '2025-074839';
-const RE_PROTO = /^2025-\d{6}$/;
+function timelineFromM1(denuncia) {
+  const { statusRaw, recebidaEm, assunto } = denuncia;
+  const data = formatarData(recebidaEm);
 
-// Linha do tempo para um protocolo recém-registrado (ainda não está no mock).
-function timelineEmTriagem() {
+  const passouClassificacao = ['CLASSIFICADA', 'PRIORIZADA', 'PENDENTE_DE_REVISAO', 'ENCAMINHADA'].includes(statusRaw);
+  const passouPriorizacao   = ['PRIORIZADA', 'PENDENTE_DE_REVISAO', 'ENCAMINHADA'].includes(statusRaw);
+  const encaminhada         = statusRaw === 'ENCAMINHADA';
+  const pendente            = statusRaw === 'PENDENTE_DE_REVISAO';
+
   return [
-    { title: 'Recebida', detail: 'Denúncia registrada no sistema', time: 'agora há pouco', done: true },
-    { title: 'Classificando pela IA…', detail: 'Análise automática do texto em andamento', time: '', done: false, current: true },
-    { title: 'Priorização', detail: '—', time: '', done: false },
-    { title: 'Encaminhamento ao órgão', detail: '—', time: '', done: false },
+    {
+      title: 'Recebida',
+      detail: 'Denúncia registrada no sistema',
+      time: data,
+      done: true,
+    },
+    {
+      title: passouClassificacao ? `Classificada: ${assunto}` : 'Classificando pela IA…',
+      detail: passouClassificacao
+        ? 'Categoria confirmada pela classificação automática'
+        : 'Análise automática do texto em andamento',
+      time: passouClassificacao ? data : '',
+      done: passouClassificacao,
+      current: statusRaw === 'RECEBIDA',
+    },
+    {
+      title: passouPriorizacao ? 'Prioridade calculada' : 'Priorização',
+      detail: passouPriorizacao ? 'Score de criticidade atribuído' : '—',
+      time: passouPriorizacao ? data : '',
+      done: passouPriorizacao,
+      current: statusRaw === 'CLASSIFICADA',
+    },
+    {
+      title: pendente ? 'Pendente de revisão' : encaminhada ? 'Encaminhada ao órgão' : 'Encaminhamento ao órgão',
+      detail: pendente
+        ? 'Aguardando confirmação humana do assunto antes do encaminhamento'
+        : encaminhada
+        ? 'Órgão responsável notificado pelo sistema'
+        : '—',
+      time: pendente || encaminhada ? data : '',
+      done: encaminhada,
+      current: pendente,
+    },
   ];
-}
-
-function resolver(proto) {
-  const limpo = (proto || '').trim();
-  const d = getDenuncia(limpo);
-  if (d) return { tipo: 'ok', denuncia: d };
-  if (RE_PROTO.test(limpo)) return { tipo: 'triagem', proto: limpo };
-  return { tipo: 'nao-encontrado', proto: limpo };
 }
 
 export default function Acompanhar() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const inicial = params.get('proto') || PROTO_DEMO;
 
-  const [input, setInput] = useState(inicial);
-  const [consulta, setConsulta] = useState(() => resolver(inicial));
+  const [input, setInput] = useState(params.get('proto') || '');
+  const [resultado, setResultado] = useState(null); // null | { tipo, denuncia? }
+  const [carregando, setCarregando] = useState(false);
 
-  const consultar = () => setConsulta(resolver(input));
+  const consultar = async () => {
+    const proto = input.trim();
+    if (!proto) return;
+    setCarregando(true);
+    setResultado(null);
+    try {
+      const d = await fetchDenunciaPorProtocolo(proto);
+      if (d) {
+        setResultado({
+          tipo: 'ok',
+          denuncia: {
+            ...d,
+            proto: d.protocolo,
+            assuntoCid: d.assunto,
+            texto: d.descricao,
+            onde: d.onde || '—',
+            statusRaw: d.status,
+            status: STATUS_LABEL[d.status] || d.status,
+            recebidaEm: d.recebidaEm,
+            assunto: d.assunto,
+          },
+        });
+      } else {
+        setResultado({ tipo: 'nao-encontrado', proto });
+      }
+    } catch {
+      setResultado({ tipo: 'nao-encontrado', proto });
+    } finally {
+      setCarregando(false);
+    }
+  };
 
   const actions = (
     <>
@@ -58,7 +111,6 @@ export default function Acompanhar() {
       </div>
 
       <div className="acomp-body">
-        {/* Busca */}
         <div className="acomp-search">
           <div className="acomp-search-field tnum">
             <Icon name="search" size={18} />
@@ -66,82 +118,55 @@ export default function Acompanhar() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && consultar()}
-              placeholder="2025-000000"
+              placeholder="PRISMA-XXXXXXXX"
               aria-label="Número do protocolo"
             />
           </div>
-          <button type="button" className="acomp-search-btn" onClick={consultar}>
-            Consultar
+          <button type="button" className="acomp-search-btn" onClick={consultar} disabled={carregando}>
+            {carregando ? 'Consultando…' : 'Consultar'}
           </button>
         </div>
 
-        {consulta.tipo === 'ok' && <ResultadoOk denuncia={consulta.denuncia} />}
-        {consulta.tipo === 'triagem' && <ResultadoTriagem proto={consulta.proto} />}
-        {consulta.tipo === 'nao-encontrado' && <NaoEncontrado proto={consulta.proto} />}
+        {resultado?.tipo === 'ok'           && <ResultadoOk denuncia={resultado.denuncia} />}
+        {resultado?.tipo === 'nao-encontrado' && <NaoEncontrado proto={resultado.proto} />}
 
         <div className="acomp-foot">
-          <Link to="/portal" className="acomp-back">
-            ← Voltar ao início
-          </Link>
+          <Link to="/portal" className="acomp-back">← Voltar ao início</Link>
         </div>
       </div>
     </div>
   );
 }
 
-/* ---------- Resultado encontrado ---------- */
 function ResultadoOk({ denuncia: d }) {
-  const m = critMeta(d.criticidade);
-  const etapas = useMemo(() => timelineFromDenuncia(d), [d]);
-  const encaminhada = d.status === 'Encaminhada';
+  const etapas = timelineFromM1(d);
 
   return (
     <div className="acomp-card">
       <div className="acomp-card-head">
         <div>
           <div className="acomp-proto tnum">Protocolo: {d.proto}</div>
-          <h2>{d.assuntoIA}</h2>
-          <div className="acomp-chips">
-            <span className="acomp-chip" style={{ background: m.bg, color: m.color }}>
-              {d.criticidade}
-            </span>
-            <span className="acomp-chip acomp-chip-muted">
-              <Icon name="pin" size={13} /> {d.bairro} · Recife
-            </span>
-            <span className="acomp-chip acomp-chip-muted">{d.orgao}</span>
-          </div>
-        </div>
-        <span className={`acomp-status ${encaminhada ? 'is-ok' : 'is-pend'}`}>{d.status}</span>
-      </div>
-
-      <Timeline etapas={etapas} />
-    </div>
-  );
-}
-
-/* ---------- Protocolo em triagem (recém-registrado) ---------- */
-function ResultadoTriagem({ proto }) {
-  const etapas = timelineEmTriagem();
-  return (
-    <div className="acomp-card">
-      <div className="acomp-card-head">
-        <div>
-          <div className="acomp-proto tnum">Protocolo: {proto}</div>
-          <h2>Denúncia em triagem</h2>
+          <h2>{d.assuntoCid}</h2>
           <div className="acomp-chips">
             <span className="acomp-chip acomp-chip-muted">
-              <Icon name="clock" size={13} /> Registrada agora há pouco
+              <Icon name="clock" size={13} /> {formatarData(d.recebidaEm)}
             </span>
+            {d.onde && d.onde !== '—' && (
+              <span className="acomp-chip acomp-chip-muted">
+                <Icon name="pin" size={13} /> {d.onde}
+              </span>
+            )}
           </div>
         </div>
-        <span className="acomp-status is-triagem">Em triagem</span>
+        <span className={`acomp-status ${d.statusRaw === 'ENCAMINHADA' ? 'is-ok' : d.statusRaw === 'PENDENTE_DE_REVISAO' ? 'is-pend' : 'is-triagem'}`}>
+          {d.status}
+        </span>
       </div>
       <Timeline etapas={etapas} />
     </div>
   );
 }
 
-/* ---------- Não encontrado ---------- */
 function NaoEncontrado({ proto }) {
   return (
     <div className="acomp-card acomp-empty">
@@ -151,14 +176,13 @@ function NaoEncontrado({ proto }) {
       <h2>Protocolo não encontrado</h2>
       <p>
         {proto
-          ? `Não localizamos nenhuma denúncia com o protocolo “${proto}”. Confira o número (formato 2025-000000) e tente novamente.`
+          ? `Não localizamos nenhuma denúncia com o protocolo "${proto}". Confira o número (formato PRISMA-XXXXXXXX) e tente novamente.`
           : 'Informe o número de protocolo recebido ao registrar a denúncia.'}
       </p>
     </div>
   );
 }
 
-/* ---------- Linha do tempo ---------- */
 function Timeline({ etapas }) {
   return (
     <div className="acomp-timeline">

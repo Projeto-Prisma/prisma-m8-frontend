@@ -44,10 +44,12 @@ export function ConfBar({ valor, divergente }) {
   );
 }
 
-// Bloco de classificação automática. Funciona com dados do mock (assuntoIA presente)
-// ou com dados brutos do M1 (assuntoIA = null → mostra "aguardando M2").
+// Bloco de classificação automática.
+// - assuntoIA preenchido + revisar=false: classificação com confiança acima do limiar.
+// - assuntoIA preenchido + revisar=true: modelo sugeriu, mas confiança baixa — requer revisão.
+// - assuntoIA=null: M2 ainda não processou (pipeline em andamento).
 export function IAVeredito({ denuncia, compact = false }) {
-  const temIA = Boolean(denuncia.assuntoIA);
+  const temIA      = Boolean(denuncia.assuntoIA);
   const divergente = temIA && denuncia.assuntoCid !== denuncia.assuntoIA;
 
   return (
@@ -64,7 +66,12 @@ export function IAVeredito({ denuncia, compact = false }) {
             <span className="ia-label">IA classificou</span>
             <span className="ia-value ia-strong">{denuncia.assuntoIA}</span>
           </div>
-          <ConfBar valor={denuncia.confianca} divergente={divergente} />
+          {denuncia.revisar && (
+            <p className="ia-pending" style={{ marginTop: 6 }}>
+              Confiança abaixo do limiar — sugestão do modelo, requer revisão humana.
+            </p>
+          )}
+          <ConfBar valor={denuncia.confianca} divergente={divergente || denuncia.revisar} />
         </>
       ) : (
         <p className="ia-pending">Aguardando classificação automática (M2)</p>

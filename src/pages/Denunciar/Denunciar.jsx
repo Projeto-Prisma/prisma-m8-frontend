@@ -200,15 +200,18 @@ export default function Denunciar() {
               ))}
             </div>
 
-            <button
-              type="button"
-              className={`den-check ${sigilo ? 'is-on' : ''}`}
-              onClick={() => setSigilo((v) => !v)}
-            >
-              <span className="den-check-box">{sigilo && <Icon name="check" size={12} strokeWidth={2.6} />}</span>
-              Desejo manter o sigilo no atendimento
-            </button>
+            {!anon && (
+              <button
+                type="button"
+                className={`den-check ${sigilo ? 'is-on' : ''}`}
+                onClick={() => setSigilo((v) => !v)}
+              >
+                <span className="den-check-box">{sigilo && <Icon name="check" size={12} strokeWidth={2.6} />}</span>
+                Desejo manter o sigilo no atendimento
+              </button>
+            )}
 
+            {/* Campos de identificação — desabilitados no modo anônimo */}
             <fieldset className="den-grid" disabled={anon}>
               <Field label="Nome" required>
                 <input value={form.nome} onChange={set('nome')} placeholder="Seu nome completo" />
@@ -234,17 +237,21 @@ export default function Denunciar() {
               <Field label="Email" required>
                 <input type="email" value={form.email} onChange={set('email')} placeholder="voce@email.com" />
               </Field>
+            </fieldset>
+
+            {/* Campos de localização — sempre ativos, inclusive no modo anônimo */}
+            <div className="den-grid">
               <Field label="Onde" required>
                 <Select value={form.onde} onChange={set('onde')} placeholder="Selecione" options={ONDES} />
               </Field>
               <Field label="Protocolo Anterior">
                 <input value={form.protoAnterior} onChange={set('protoAnterior')} placeholder="Deixe em branco se for novo" />
               </Field>
-            </fieldset>
+            </div>
 
             {anon && (
               <p className="den-anon-hint">
-                <Icon name="info" size={14} /> Denúncia anônima: os dados de identificação ficam desabilitados.
+                <Icon name="info" size={14} /> Denúncia anônima: apenas os dados de identificação pessoal ficam desabilitados. Localização e protocolo anterior continuam preenchíveis.
               </p>
             )}
 
@@ -335,7 +342,7 @@ export default function Denunciar() {
         {/* STEP 1 — anexo + localização */}
         {step === 1 && (
           <div className="den-card">
-            <h3 className="den-card-title">Incluir Anexo e Localização</h3>
+            <h3 className="den-card-title">Incluir Anexo</h3>
 
             <label className="den-label">Foto do problema</label>
             <label className={`den-dropzone ${foto ? 'has-file' : ''}`}>
@@ -358,19 +365,6 @@ export default function Denunciar() {
                 </>
               )}
             </label>
-
-            <label className="den-label" style={{ marginTop: 22 }}>
-              Localização no mapa
-            </label>
-            <div className="den-map">
-              <span className="den-map-pin" />
-              <span className="den-map-addr">
-                {form.onde === 'Recife' ? 'Av. Caxangá, Várzea · Recife' : `${form.onde}`}
-              </span>
-              <button type="button" className="den-map-locate">
-                <Icon name="target" size={14} /> Minha localização
-              </button>
-            </div>
 
             <div className="den-actions den-actions-between">
               <button type="button" className="den-btn-ghost" onClick={voltar}>

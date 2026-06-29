@@ -50,10 +50,7 @@ const COMO = [
 ];
 
 const STATS = [
-  { valor: '21 mil+', label: 'manifestações tratadas' },
-  { valor: '56', label: 'órgãos integrados' },
-  { valor: '3 dias', label: 'resposta mediana' },
-  { valor: 'IA', label: 'classificação automática' },
+
 ];
 
 export default function Home() {

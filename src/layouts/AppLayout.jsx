@@ -1,7 +1,8 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import Icon from '../components/Icon';
 import Logo from '../components/Logo';
-import { notificacoes } from '../data/mockNotificacoes';
+import { fetchNotificacoes, normalizarNotificacao } from '../services/m6Service';
 import './AppLayout.css';
 
 const NAV = [
@@ -12,9 +13,38 @@ const NAV = [
   { to: '/notificacoes', label: 'Notificações', icon: 'bell' },
 ];
 
+export function useNotificacoes() {
+  const [naoLidas, setNaoLidas] = useState(0);
+
+  const carregar = () => {
+    fetchNotificacoes(50)
+      .then((lista) => {
+        const normalized = Array.isArray(lista) ? lista.map(normalizarNotificacao) : [];
+        setNaoLidas(normalized.filter((n) => !n.lida).length);
+      })
+      .catch(() => setNaoLidas(0));
+  };
+
+  return { naoLidas, carregar };
+}
+
 export default function AppLayout({ children, onLogout }) {
-  const naoLidas = notificacoes.filter((n) => !n.lida).length;
   const navigate = useNavigate();
+  const location = useLocation();
+  const { naoLidas, carregar } = useNotificacoes();
+  const prevPathRef = useRef(location.pathname);
+
+  useEffect(() => {
+    carregar();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refaz o fetch ao navegar (detecta mudança de rota)
+  useEffect(() => {
+    if (location.pathname !== prevPathRef.current) {
+      prevPathRef.current = location.pathname;
+      carregar();
+    }
+  }); // sem dep array: roda após cada render, mas só chama carregar() quando pathname muda
 
   return (
     <div className="app-layout">

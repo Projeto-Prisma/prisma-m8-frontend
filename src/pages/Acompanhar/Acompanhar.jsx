@@ -2,19 +2,18 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PublicTopbar from '../../components/PublicTopbar';
 import Icon from '../../components/Icon';
-import { fetchDenunciaPorProtocolo, STATUS_LABEL, formatarData } from '../../services/denunciasService';
+import { fetchDenunciaPorProtocolo, normalizarDenuncia, formatarData, encaminhadaEfetiva, statusEfetivo } from '../../services/denunciasService';
+import { fetchM2Denuncia } from '../../services/m2Service';
+import { fetchM3Denuncia } from '../../services/m3Service';
+import { fetchEncaminhamentoPorDenuncia } from '../../services/m5Service';
 import './Acompanhar.css';
 
-function timelineFromM1(denuncia) {
-  const { statusRaw, recebidaEm, assunto } = denuncia;
-  const data = formatarData(recebidaEm);
+function construirEtapasPublicas(d) {
+  const data = formatarData(d.recebidaEm);
+  const precisaRevisao = Boolean(d.revisar || (d.assuntoIA && d.assuntoCid !== d.assuntoIA));
+  const encaminhada = encaminhadaEfetiva(d);
 
-  const passouClassificacao = ['CLASSIFICADA', 'PRIORIZADA', 'PENDENTE_DE_REVISAO', 'ENCAMINHADA'].includes(statusRaw);
-  const passouPriorizacao   = ['PRIORIZADA', 'PENDENTE_DE_REVISAO', 'ENCAMINHADA'].includes(statusRaw);
-  const encaminhada         = statusRaw === 'ENCAMINHADA';
-  const pendente            = statusRaw === 'PENDENTE_DE_REVISAO';
-
-  return [
+  const etapas = [
     {
       title: 'Recebida',
       detail: 'Denúncia registrada no sistema',
@@ -22,33 +21,48 @@ function timelineFromM1(denuncia) {
       done: true,
     },
     {
-      title: passouClassificacao ? `Classificada: ${assunto}` : 'Classificando pela IA…',
-      detail: passouClassificacao
-        ? 'Categoria confirmada pela classificação automática'
+      title: d.assuntoIA ? `Classificada: ${d.assuntoIA}` : 'Classificando pela IA…',
+      detail: d.assuntoIA
+        ? 'Categoria identificada pela análise automática'
         : 'Análise automática do texto em andamento',
-      time: passouClassificacao ? data : '',
-      done: passouClassificacao,
-      current: statusRaw === 'RECEBIDA',
-    },
-    {
-      title: passouPriorizacao ? 'Prioridade calculada' : 'Priorização',
-      detail: passouPriorizacao ? 'Score de criticidade atribuído' : '—',
-      time: passouPriorizacao ? data : '',
-      done: passouPriorizacao,
-      current: statusRaw === 'CLASSIFICADA',
-    },
-    {
-      title: pendente ? 'Pendente de revisão' : encaminhada ? 'Encaminhada ao órgão' : 'Encaminhamento ao órgão',
-      detail: pendente
-        ? 'Aguardando confirmação humana do assunto antes do encaminhamento'
-        : encaminhada
-        ? 'Órgão responsável notificado pelo sistema'
-        : '—',
-      time: pendente || encaminhada ? data : '',
-      done: encaminhada,
-      current: pendente,
+      time: d.assuntoIA ? data : '',
+      done: Boolean(d.assuntoIA),
+      current: !d.assuntoIA,
     },
   ];
+
+  if (precisaRevisao && !encaminhada) {
+    etapas.push({
+      title: 'Em análise — aguardando confirmação humana',
+      detail: d.revisar
+        ? 'Nível de confiança da IA requer verificação antes do encaminhamento'
+        : 'A IA discordou do assunto informado — um atendente está revisando',
+      time: '',
+      done: false,
+      current: true,
+    });
+    return etapas;
+  }
+
+  etapas.push({
+    title: d.criticidade ? 'Prioridade calculada' : 'Priorização',
+    detail: d.criticidade ? `Nível de criticidade: ${d.criticidade}` : '—',
+    time: d.criticidade ? data : '',
+    done: Boolean(d.criticidade),
+    current: Boolean(d.assuntoIA) && !d.criticidade,
+  });
+
+  etapas.push({
+    title: encaminhada
+      ? (d.orgao ? `Encaminhada: ${d.orgao}` : 'Encaminhada ao órgão')
+      : 'Encaminhamento ao órgão',
+    detail: encaminhada ? 'Órgão responsável notificado pelo sistema' : '—',
+    time: encaminhada ? data : '',
+    done: encaminhada,
+    current: Boolean(d.criticidade) && !encaminhada,
+  });
+
+  return etapas;
 }
 
 export default function Acompanhar() {
@@ -65,22 +79,14 @@ export default function Acompanhar() {
     setCarregando(true);
     setResultado(null);
     try {
-      const d = await fetchDenunciaPorProtocolo(proto);
-      if (d) {
-        setResultado({
-          tipo: 'ok',
-          denuncia: {
-            ...d,
-            proto: d.protocolo,
-            assuntoCid: d.assunto,
-            texto: d.descricao,
-            onde: d.onde || '—',
-            statusRaw: d.status,
-            status: STATUS_LABEL[d.status] || d.status,
-            recebidaEm: d.recebidaEm,
-            assunto: d.assunto,
-          },
-        });
+      const raw = await fetchDenunciaPorProtocolo(proto);
+      if (raw) {
+        const [m2, m3, m5] = await Promise.all([
+          raw.id ? fetchM2Denuncia(raw.id).catch(() => null) : null,
+          raw.id ? fetchM3Denuncia(raw.id).catch(() => null) : null,
+          raw.id ? fetchEncaminhamentoPorDenuncia(raw.id).catch(() => null) : null,
+        ]);
+        setResultado({ tipo: 'ok', denuncia: normalizarDenuncia(raw, m2, m3, m5) });
       } else {
         setResultado({ tipo: 'nao-encontrado', proto });
       }
@@ -139,7 +145,9 @@ export default function Acompanhar() {
 }
 
 function ResultadoOk({ denuncia: d }) {
-  const etapas = timelineFromM1(d);
+  const etapas = construirEtapasPublicas(d);
+  const statusLabel = statusEfetivo(d);
+  const statusClass = statusLabel === 'Encaminhada' ? 'is-ok' : statusLabel === 'Pendente de revisão' ? 'is-pend' : 'is-triagem';
 
   return (
     <div className="acomp-card">
@@ -158,8 +166,8 @@ function ResultadoOk({ denuncia: d }) {
             )}
           </div>
         </div>
-        <span className={`acomp-status ${d.statusRaw === 'ENCAMINHADA' ? 'is-ok' : d.statusRaw === 'PENDENTE_DE_REVISAO' ? 'is-pend' : 'is-triagem'}`}>
-          {d.status}
+        <span className={`acomp-status ${statusClass}`}>
+          {statusLabel}
         </span>
       </div>
       <Timeline etapas={etapas} />

@@ -3,7 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import Icon from '../../components/Icon';
 import { CritBadge, StatusBadge } from '../../components/Badges';
-import { fetchDenuncias, normalizarDenuncia } from '../../services/denunciasService';
+import { fetchDenuncias, normalizarDenuncia, statusEfetivo, encaminhadaEfetiva, precisaRevisaoEfetiva } from '../../services/denunciasService';
+import { fetchM2Denuncias } from '../../services/m2Service';
+import { fetchM3Denuncias } from '../../services/m3Service';
+import { fetchEncaminhamentos } from '../../services/m5Service';
 import './Denuncias.css';
 
 const FILTROS = [
@@ -22,24 +25,40 @@ export default function Denuncias() {
   const [erro, setErro]           = useState(null);
 
   useEffect(() => {
-    fetchDenuncias()
-      .then((lista) => setDenuncias(lista.map(normalizarDenuncia)))
+    Promise.all([
+      fetchDenuncias(),
+      fetchM2Denuncias().catch(() => []),
+      fetchM3Denuncias().catch(() => []),
+      fetchEncaminhamentos().catch(() => []),
+    ])
+      .then(([lista, m2Lista, m3Lista, m5Lista]) => {
+        const m2ById   = new Map(m2Lista.map((m) => [m.id,    m]));
+        const m2ByText = new Map(m2Lista.map((m) => [m.texto, m]));
+        const m3ById   = new Map(m3Lista.map((m) => [m.id,    m]));
+        const m5ById   = new Map(m5Lista.map((m) => [String(m.id), m]));
+        setDenuncias(lista.map((d) => {
+          const m2 = m2ById.get(d.id) ?? m2ByText.get(d.descricao) ?? null;
+          const m3 = m3ById.get(d.id) ?? null;
+          const m5 = m5ById.get(d.id) ?? null;
+          return normalizarDenuncia(d, m2, m3, m5);
+        }));
+      })
       .catch((e) => setErro(e.message))
       .finally(() => setLoading(false));
   }, []);
 
   const contagens = useMemo(() => ({
     todas:        denuncias.length,
-    pendentes:    denuncias.filter((d) => d.statusRaw === 'PENDENTE_DE_REVISAO').length,
-    encaminhadas: denuncias.filter((d) => d.statusRaw === 'ENCAMINHADA').length,
+    pendentes:    denuncias.filter(precisaRevisaoEfetiva).length,
+    encaminhadas: denuncias.filter(encaminhadaEfetiva).length,
   }), [denuncias]);
 
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return denuncias
       .filter((d) => {
-        if (filtro === 'pendentes')    return d.statusRaw === 'PENDENTE_DE_REVISAO';
-        if (filtro === 'encaminhadas') return d.statusRaw === 'ENCAMINHADA';
+        if (filtro === 'pendentes')    return precisaRevisaoEfetiva(d);
+        if (filtro === 'encaminhadas') return encaminhadaEfetiva(d);
         return true;
       })
       .filter((d) => {
@@ -123,13 +142,15 @@ export default function Denuncias() {
               <div className="den-ia">
                 {temIA ? (
                   <>
-                    <div className={`ia-pill ${divergente ? 'is-div' : 'is-ok'}`}>
+                    <div className={`ia-pill ${d.revisar ? 'ia-pill-pending' : divergente ? 'is-div' : 'is-ok'}`}>
                       <Icon name="cpu" size={13} />
                       <span>{d.assuntoIA}</span>
                     </div>
-                    {divergente
-                      ? <span className="ia-note ia-note-div">≠ {d.assuntoCid}</span>
-                      : <span className="ia-note ia-note-ok">confirma o cidadão</span>}
+                    {d.revisar
+                      ? <span className="ia-note ia-note-div">baixa confiança — revisar</span>
+                      : divergente
+                        ? <span className="ia-note ia-note-div">≠ {d.assuntoCid}</span>
+                        : <span className="ia-note ia-note-ok">confirma o cidadão</span>}
                     <span className="ia-conf tnum">{d.confianca}% confiança</span>
                   </>
                 ) : (
@@ -142,7 +163,7 @@ export default function Denuncias() {
 
               <div className="den-end">
                 {d.criticidade && <CritBadge nivel={d.criticidade} />}
-                <StatusBadge status={d.status} />
+                <StatusBadge status={statusEfetivo(d)} />
                 <Icon name="arrowRight" size={18} className="den-chevron" />
               </div>
             </Link>

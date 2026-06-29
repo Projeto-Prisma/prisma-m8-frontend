@@ -245,6 +245,128 @@
   padding: 14px 20px;
 }
 
+/* ---------- Gráficos M7 ---------- */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 24px;
+}
+.chart-card {
+  min-width: 0;
+}
+.chart-body {
+  padding: 16px 20px 20px;
+}
+.chart-empty {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 8px 0;
+}
+
+/* Barras horizontais (categorias) */
+.bar-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bar-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 36px;
+  align-items: center;
+  gap: 10px;
+}
+.bar-label {
+  font-size: 12.5px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar-track {
+  height: 10px;
+  background: var(--line-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.bar-val {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+}
+
+/* Barras por nível */
+.nivel-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.nivel-row {
+  display: grid;
+  grid-template-columns: 10px 60px 1fr 36px 44px;
+  align-items: center;
+  gap: 8px;
+}
+.nivel-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.nivel-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.nivel-track {
+  height: 12px;
+  background: var(--line-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.nivel-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.nivel-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: right;
+}
+.nivel-cnt {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Volume diário */
+.vol-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vol-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.vol-foot {
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Gráfico volume ocupa coluna completa */
+.charts-grid > :last-child {
+  grid-column: 1 / -1;
+}
+
 /* ---------- Responsivo ---------- */
 @media (max-width: 1080px) {
   .kpi-grid {
@@ -254,6 +376,12 @@
 @media (max-width: 860px) {
   .dash-grid {
     grid-template-columns: 1fr;
+  }
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .charts-grid > :last-child {
+    grid-column: 1;
   }
 }
 @media (max-width: 480px) {

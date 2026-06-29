@@ -1,6 +1,6 @@
 .mapa-grid {
   display: grid;
-  grid-template-columns: 1.7fr 1fr;
+  grid-template-columns: 2.5fr 1fr;
   gap: 16px;
   align-items: start;
 }
@@ -12,42 +12,27 @@
 .mapa-canvas {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
-  background: #f0f4fa;
+  height: 520px;
   border-radius: var(--r-sm);
   overflow: hidden;
+  background: #e8eef5;
 }
-.mapa-bg {
-  position: absolute;
-  inset: 0;
+
+.mapa-leaflet {
   width: 100%;
   height: 100%;
 }
 
-.mapa-bolha {
+.mapa-loading-overlay {
   position: absolute;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  border: 2px solid #fff;
-  background: var(--c);
-  opacity: 0.82;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(27, 38, 50, 0.18);
-  transition: opacity 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-.mapa-bolha:hover,
-.mapa-bolha.is-ativo {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1.12);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 28%, transparent),
-    0 4px 12px rgba(27, 38, 50, 0.25);
-}
-.bolha-count {
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(240, 244, 250, 0.85);
+  font-size: 14px;
+  color: var(--muted);
+  z-index: 1000;
 }
 
 .mapa-tag {
@@ -56,15 +41,18 @@
   bottom: 10px;
   font-size: 11px;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.88);
   padding: 3px 8px;
   border-radius: 6px;
+  z-index: 1000;
+  pointer-events: none;
 }
 
 .mapa-legenda {
   display: flex;
   gap: 18px;
   flex-wrap: wrap;
+  align-items: center;
   padding: 14px 6px 4px;
 }
 .legenda-item {
@@ -79,6 +67,33 @@
   width: 11px;
   height: 11px;
   border-radius: 50%;
+}
+.legenda-calor {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-right: 6px;
+  padding-right: 18px;
+  border-right: 1px solid var(--line-soft);
+}
+.legenda-gradiente {
+  display: inline-block;
+  width: 72px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #818cf8,
+    #38bdf8,
+    #4ade80,
+    #facc15,
+    #fb923c,
+    #ef4444
+  );
+  flex-shrink: 0;
 }
 
 /* Painel lateral */
@@ -124,10 +139,18 @@
   color: var(--muted);
 }
 
-/* Lista de regiões */
+.zona-destaque-categoria {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 10px 0 0;
+}
+
+/* Lista de bairros */
 .zona-list {
   list-style: none;
   padding: 6px;
+  max-height: 420px;
+  overflow-y: auto;
 }
 .zona-row {
   padding: 10px 14px;
@@ -154,6 +177,13 @@
   font-size: 14px;
   font-weight: 700;
 }
+.zona-categoria {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 1px;
+}
 .zona-track {
   height: 6px;
   border-radius: 999px;
@@ -170,5 +200,8 @@
 @media (max-width: 900px) {
   .mapa-grid {
     grid-template-columns: 1fr;
+  }
+  .mapa-canvas {
+    height: 380px;
   }
 }

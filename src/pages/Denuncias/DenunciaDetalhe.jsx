@@ -6,8 +6,17 @@ import {
   fetchDenunciaPorProtocolo,
   normalizarDenuncia,
   atualizarStatusDenuncia,
+  confirmarAssuntoDenuncia,
   formatarData,
+  statusEfetivo,
+  encaminhadaEfetiva,
 } from '../../services/denunciasService';
+import { fetchM2Denuncia, fetchM2PorTexto, classificarTexto, revisarClassificacao } from '../../services/m2Service';
+import { fetchM3Denuncia } from '../../services/m3Service';
+import { fetchEncaminhamentoPorDenuncia, redirecionarEncaminhamento } from '../../services/m5Service';
+import { fetchSecretarias } from '../../services/secretariasService';
+import { fetchNotificacoesDenuncia } from '../../services/m6Service';
+import { ASSUNTOS } from '../../data/mockProtocolo';
 import './DenunciaDetalhe.css';
 
 export default function DenunciaDetalhe() {
@@ -15,28 +24,149 @@ export default function DenunciaDetalhe() {
   const [d, setD]           = useState(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro]     = useState(null);
-  const [atualizando, setAtualizando] = useState(false);
+  const [atualizando, setAtualizando]   = useState(false);
+  const [classificando, setClassificando] = useState(false);
+  const [notificacoes, setNotificacoes] = useState([]);
+  // Revisão humana: 'cid' | 'ia' | 'outro'
+  const [opcaoRevisao, setOpcaoRevisao] = useState(null);
+  const [assuntoOutro, setAssuntoOutro] = useState('');
+  // Redirecionamento manual (Triagem Geral)
+  const [orgaosDisponiveis, setOrgaosDisponiveis] = useState([]);
+  const [carregandoOrgaos, setCarregandoOrgaos] = useState(false);
+  const [mostrandoOrgaos, setMostrandoOrgaos] = useState(false);
+  const [orgaoEscolhidoId, setOrgaoEscolhidoId] = useState(null);
+  const [redirecionando, setRedirecionando] = useState(false);
 
   useEffect(() => {
     fetchDenunciaPorProtocolo(proto)
-      .then((raw) => {
+      .then(async (raw) => {
         if (!raw) { setErro('not-found'); return; }
-        setD({ ...normalizarDenuncia(raw), id: raw.id, historico: raw.historico ?? [] });
+        const [m2, m3, m5] = await Promise.all([
+          raw.id
+            ? fetchM2Denuncia(raw.id).catch(() => null)
+            : fetchM2PorTexto(raw.descricao).catch(() => null),
+          raw.id ? fetchM3Denuncia(raw.id).catch(() => null) : null,
+          raw.id ? fetchEncaminhamentoPorDenuncia(raw.id).catch(() => null) : null,
+        ]);
+        setD({ ...normalizarDenuncia(raw, m2, m3, m5), id: raw.id, historico: raw.historico ?? [] });
+        if (raw.id) {
+          fetchNotificacoesDenuncia(raw.id)
+            .then(setNotificacoes)
+            .catch(() => {});
+        }
       })
       .catch(() => setErro('erro'))
       .finally(() => setLoading(false));
   }, [proto]);
 
+  // Pré-seleciona a opção de revisão ao carregar uma denúncia pendente
+  useEffect(() => {
+    if (!d || d.statusRaw !== 'PENDENTE_DE_REVISAO') return;
+    const div = Boolean(d.assuntoIA) && d.assuntoCid !== d.assuntoIA;
+    // Sem divergência (só baixa confiança): pré-seleciona o assunto do cidadão
+    if (!div) setOpcaoRevisao('cid');
+    // Com divergência: sem pré-seleção, força escolha manual
+  }, [d?.id, d?.statusRaw]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-classifica quando não há dados do M2
+  useEffect(() => {
+    if (!d || d.assuntoIA !== null || d.revisar) return;
+    setClassificando(true);
+    classificarTexto(d.texto)
+      .then((resultado) => {
+        setD((prev) => ({
+          ...prev,
+          assuntoIA: resultado.categoria_sugerida ?? resultado.categoria ?? null,
+          confianca: resultado.confianca != null ? Math.round(resultado.confianca * 100) : null,
+          revisar:   resultado.revisar ?? false,
+          area:      resultado.area_responsavel ?? null,
+        }));
+      })
+      .catch(() => {})
+      .finally(() => setClassificando(false));
+  }, [d?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const confirmarEncaminhamento = async () => {
     if (!d?.id) return;
     setAtualizando(true);
     try {
+      const assuntoEscolhido =
+        opcaoRevisao === 'cid' ? d.assuntoCid :
+        opcaoRevisao === 'ia'  ? d.assuntoIA  :
+        opcaoRevisao === 'outro' ? assuntoOutro : d.assuntoCid;
+
+      const precisaRevisao = Boolean(d.revisar || (d.assuntoIA && d.assuntoCid !== d.assuntoIA));
+
+      if (precisaRevisao) {
+        // Libera o gate: publica denuncia.classificada → M3 → M5 → M6
+        await revisarClassificacao(d.id, assuntoEscolhido);
+      } else if (assuntoEscolhido && assuntoEscolhido !== d.assuntoCid) {
+        await confirmarAssuntoDenuncia(d.id, assuntoEscolhido);
+      }
+
       await atualizarStatusDenuncia(d.id, 'ENCAMINHADA');
-      setD((prev) => ({ ...prev, status: 'Encaminhada', statusRaw: 'ENCAMINHADA' }));
+
+      // Refaz fetch de M3/M5 para mostrar órgão e criticidade recém-calculados
+      const [m3New, m5New] = await Promise.all([
+        fetchM3Denuncia(d.id).catch(() => null),
+        fetchEncaminhamentoPorDenuncia(d.id).catch(() => null),
+      ]);
+      const nivelParaLabel = { CRITICO: 'Crítico', ALTO: 'Alto', MEDIO: 'Médio', BAIXO: 'Baixo' };
+      setD((prev) => ({
+        ...prev,
+        assuntoCid: assuntoEscolhido ?? prev.assuntoCid,
+        status: 'Encaminhada',
+        statusRaw: 'ENCAMINHADA',
+        revisar: false,
+        divergencia: false,
+        criticidade: m3New ? (nivelParaLabel[m3New.nivel] ?? m3New.nivel) : prev.criticidade,
+        score: m3New?.score ?? prev.score,
+        orgao: m5New?.secretariaNome ?? prev.orgao,
+        orgaoSigla: m5New?.secretariaSigla ?? prev.orgaoSigla,
+        orgaoId: m5New?.secretariaId ?? prev.orgaoId,
+      }));
     } catch (e) {
       alert(`Erro ao atualizar: ${e.message}`);
     } finally {
       setAtualizando(false);
+    }
+  };
+
+  const abrirOrgaos = async () => {
+    if (mostrandoOrgaos) { setMostrandoOrgaos(false); return; }
+    setCarregandoOrgaos(true);
+    try {
+      const todos = await fetchSecretarias();
+      const relevant = (s) => s.categorias?.some((c) => c === d.assuntoCid || c === d.assuntoIA);
+      setOrgaosDisponiveis([
+        ...todos.filter(relevant),
+        ...todos.filter((s) => !relevant(s)),
+      ]);
+      setMostrandoOrgaos(true);
+    } catch (e) {
+      alert(`Erro ao carregar órgãos: ${e.message}`);
+    } finally {
+      setCarregandoOrgaos(false);
+    }
+  };
+
+  const confirmarRedirecionamento = async () => {
+    if (!d?.id || !orgaoEscolhidoId) return;
+    setRedirecionando(true);
+    try {
+      const resultado = await redirecionarEncaminhamento(d.id, orgaoEscolhidoId);
+      setD((prev) => ({
+        ...prev,
+        orgao: resultado.secretariaNome,
+        orgaoSigla: resultado.secretariaSigla,
+        orgaoId: resultado.secretariaId,
+      }));
+      setMostrandoOrgaos(false);
+      setOrgaoEscolhidoId(null);
+    } catch (e) {
+      alert(`Erro ao redirecionar: ${e.message}`);
+    } finally {
+      setRedirecionando(false);
     }
   };
 
@@ -75,8 +205,9 @@ export default function DenunciaDetalhe() {
   }
 
   const divergente = Boolean(d.assuntoIA) && d.assuntoCid !== d.assuntoIA;
-  const pendente   = d.statusRaw === 'PENDENTE_DE_REVISAO';
-  const encaminhada = d.statusRaw === 'ENCAMINHADA';
+  const encaminhada = encaminhadaEfetiva(d);
+  const precisaRevisao = Boolean(d.revisar || (d.assuntoIA && d.assuntoCid !== d.assuntoIA));
+  const pendente = precisaRevisao && !encaminhada;
 
   const etapas = construirEtapas(d, divergente, encaminhada, pendente);
 
@@ -97,7 +228,7 @@ export default function DenunciaDetalhe() {
         </div>
         <div className="det-badges">
           {d.criticidade && <CritBadge nivel={d.criticidade} />}
-          <StatusBadge status={d.status} />
+          <StatusBadge status={statusEfetivo(d)} />
         </div>
       </header>
 
@@ -137,26 +268,91 @@ export default function DenunciaDetalhe() {
         <div className="det-col">
           <Card className="det-ia-card">
             <h2><Icon name="cpu" size={16} /> Classificação automática</h2>
-            <IAVeredito denuncia={d} />
-            {divergente && (
-              <p className="det-ia-hint">
-                A IA discorda do assunto informado. Revise antes de encaminhar.
+            {classificando ? (
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: '14px 0' }}>
+                Classificando…
               </p>
+            ) : (
+              <>
+                <IAVeredito denuncia={d} />
+                {divergente && (
+                  <p className="det-ia-hint">
+                    A IA discorda do assunto informado. Revise antes de encaminhar.
+                  </p>
+                )}
+              </>
             )}
           </Card>
 
           <Card className="det-route-card">
             <h2>Encaminhamento</h2>
             {d.orgao ? (
-              <div className="route-orgao">
-                <span className="route-orgao-icon" aria-hidden="true">
-                  <Icon name="building" size={18} />
-                </span>
-                <div>
-                  <strong>{d.orgao}</strong>
-                  <span>órgão responsável</span>
+              <>
+                <div className="route-orgao">
+                  <span className="route-orgao-icon" aria-hidden="true">
+                    <Icon name="building" size={18} />
+                  </span>
+                  <div>
+                    <strong>{d.orgao}</strong>
+                    <span>
+                      {d.orgaoSigla && `${d.orgaoSigla} · `}órgão responsável
+                      {d.score != null && ` · score ${Math.round(d.score)}`}
+                    </span>
+                  </div>
                 </div>
-              </div>
+                {d.orgaoId === null && (
+                  <>
+                    <div className="route-fallback-warn">
+                      <Icon name="alert" size={14} />
+                      Órgão sugerido automaticamente — ainda não cadastrado em Órgãos Públicos.{' '}
+                      <Link to="/orgaos">Cadastre-o em Órgãos</Link> para que o roteamento pare de usar o valor de fallback.
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost route-redirect-btn"
+                      onClick={abrirOrgaos}
+                      disabled={carregandoOrgaos}
+                    >
+                      <Icon name="building" size={15} />
+                      {carregandoOrgaos ? 'Carregando…' : mostrandoOrgaos ? 'Fechar lista' : 'Verificar órgãos disponíveis'}
+                    </button>
+                    {mostrandoOrgaos && (
+                      <div className="route-redirect-panel">
+                        <p className="route-redirect-hint">
+                          Selecione o órgão responsável. Os marcados com ★ atendem a categoria desta denúncia.
+                        </p>
+                        <ul className="route-redirect-list">
+                          {orgaosDisponiveis.map((s) => {
+                            const destaque = s.categorias?.some(
+                              (c) => c === d.assuntoCid || c === d.assuntoIA
+                            );
+                            return (
+                              <li
+                                key={s.id}
+                                className={`route-redirect-item ${orgaoEscolhidoId === s.id ? 'is-on' : ''}`}
+                                onClick={() => setOrgaoEscolhidoId(s.id)}
+                              >
+                                {destaque && <span className="route-redirect-star" title="Atende a categoria desta denúncia">★</span>}
+                                <span className="route-redirect-nome">{s.nome}</span>
+                                <span className="route-redirect-sigla">{s.sigla}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        <button
+                          type="button"
+                          className="btn btn-brand"
+                          onClick={confirmarRedirecionamento}
+                          disabled={!orgaoEscolhidoId || redirecionando}
+                        >
+                          <Icon name="check" size={15} />
+                          {redirecionando ? 'Redirecionando…' : 'Confirmar redirecionamento'}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
             ) : (
               <p style={{ fontSize: 13, color: 'var(--muted)', margin: '14px 0 18px' }}>
                 Órgão destino ainda não definido — aguardando M5 (roteamento).
@@ -165,11 +361,66 @@ export default function DenunciaDetalhe() {
 
             {pendente && (
               <div className="route-actions">
+                <p className="det-revisao-titulo">Escolha o assunto final antes de encaminhar:</p>
+
+                <label className={`det-revisao-opcao ${opcaoRevisao === 'cid' ? 'is-on' : ''}`}>
+                  <input
+                    type="radio"
+                    name="revisao"
+                    value="cid"
+                    checked={opcaoRevisao === 'cid'}
+                    onChange={() => setOpcaoRevisao('cid')}
+                  />
+                  <strong>A) Aceitar classificação do cidadão</strong>
+                  <span className="det-revisao-val">{d.assuntoCid}</span>
+                </label>
+
+                {d.assuntoIA && (
+                  <label className={`det-revisao-opcao ${opcaoRevisao === 'ia' ? 'is-on' : ''}`}>
+                    <input
+                      type="radio"
+                      name="revisao"
+                      value="ia"
+                      checked={opcaoRevisao === 'ia'}
+                      onChange={() => setOpcaoRevisao('ia')}
+                    />
+                    <strong>B) Aceitar classificação da IA</strong>
+                    <span className="det-revisao-val">{d.assuntoIA}</span>
+                  </label>
+                )}
+
+                <label className={`det-revisao-opcao ${opcaoRevisao === 'outro' ? 'is-on' : ''}`}>
+                  <input
+                    type="radio"
+                    name="revisao"
+                    value="outro"
+                    checked={opcaoRevisao === 'outro'}
+                    onChange={() => setOpcaoRevisao('outro')}
+                  />
+                  <strong>C) Definir outro assunto</strong>
+                  {opcaoRevisao === 'outro' && (
+                    <select
+                      className="det-revisao-select"
+                      value={assuntoOutro}
+                      onChange={(e) => setAssuntoOutro(e.target.value)}
+                    >
+                      <option value="" disabled>Selecione o assunto</option>
+                      {ASSUNTOS.map((a) => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
+                    </select>
+                  )}
+                </label>
+
                 <button
                   className="btn btn-ia"
                   type="button"
                   onClick={confirmarEncaminhamento}
-                  disabled={atualizando}
+                  disabled={
+                    atualizando ||
+                    !opcaoRevisao ||
+                    (opcaoRevisao === 'outro' && !assuntoOutro)
+                  }
                 >
                   <Icon name="check" size={16} />
                   {atualizando ? 'Atualizando…' : 'Confirmar e encaminhar'}
@@ -182,6 +433,21 @@ export default function DenunciaDetalhe() {
               </div>
             )}
           </Card>
+
+          {notificacoes.length > 0 && (
+            <Card className="det-notif-card">
+              <h2><Icon name="bell" size={16} /> Notificações enviadas</h2>
+              <ul className="det-notif-list">
+                {notificacoes.map((n) => (
+                  <li key={n.id} className="det-notif-item">
+                    <span className="det-notif-tipo">{n.tipo}</span>
+                    <span className="det-notif-dest">{n.destinatario}</span>
+                    <span className="det-notif-status">{n.status}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </div>
       </div>
     </section>
@@ -200,10 +466,14 @@ function construirEtapas(d, divergente, encaminhada, pendente) {
   ];
 
   if (d.assuntoIA) {
+    const confDesc = d.confianca ? ` · confiança ${d.confianca}%` : '';
+    const revisarDesc = d.revisar ? ' — baixa confiança, revisar' : '';
+    const divergDesc = !d.revisar && divergente ? ' — divergência com o informado' : '';
     etapas.push({
-      titulo: 'Classificada pela IA',
-      desc: `Assunto sugerido: ${d.assuntoIA}${d.confianca ? ` · confiança ${d.confianca}%` : ''}${divergente ? ' — divergência com o informado' : ''}`,
-      done: true,
+      titulo: d.revisar ? 'Sugestão da IA (baixa confiança)' : 'Classificada pela IA',
+      desc: `Assunto sugerido: ${d.assuntoIA}${confDesc}${revisarDesc}${divergDesc}`,
+      done: !d.revisar,
+      atual: d.revisar,
     });
   } else {
     etapas.push({
@@ -215,17 +485,21 @@ function construirEtapas(d, divergente, encaminhada, pendente) {
   }
 
   if (d.criticidade) {
+    const scoreDesc = d.score != null ? ` · score ${Math.round(d.score)}` : '';
     etapas.push({
       titulo: `Prioridade: ${d.criticidade}`,
-      desc: 'Score de criticidade calculado pelo M3.',
+      desc: `Score de criticidade calculado pelo M3${scoreDesc}.`,
       done: true,
     });
   }
 
   if (pendente) {
+    const motivoPendencia = divergente
+      ? 'Assunto da IA difere do informado pelo cidadão.'
+      : 'Confiança da IA abaixo do limiar mínimo.';
     etapas.push({
       titulo: 'Pendente de revisão',
-      desc: 'Assunto da IA difere do informado. Aguardando confirmação humana.',
+      desc: `${motivoPendencia} Aguardando confirmação humana.`,
       done: false,
       atual: true,
     });

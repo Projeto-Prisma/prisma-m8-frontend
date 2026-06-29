@@ -1,4 +1,5 @@
 const BASE_URL = import.meta.env.VITE_M9_URL ?? 'http://localhost:8009';
+const ERRO_CONEXAO = 'Não foi possível conectar ao serviço de Órgãos Públicos (M9). Verifique se ele está em execução.';
 
 async function handleResponse(res, mensagemPadrao) {
   if (!res.ok) {
@@ -12,27 +13,34 @@ async function handleResponse(res, mensagemPadrao) {
   return res.json();
 }
 
+async function fetchComTratamento(url, opcoes, mensagemPadrao) {
+  try {
+    const res = await fetch(url, opcoes);
+    return handleResponse(res, mensagemPadrao);
+  } catch (e) {
+    if (e instanceof TypeError) throw new Error(ERRO_CONEXAO);
+    throw e;
+  }
+}
+
 export async function fetchSecretarias() {
-  const res = await fetch(`${BASE_URL}/secretarias/`);
-  return handleResponse(res, 'Falha ao carregar secretarias');
+  return fetchComTratamento(`${BASE_URL}/secretarias/`, undefined, 'Falha ao carregar secretarias');
 }
 
 export async function createSecretaria(payload) {
-  const res = await fetch(`${BASE_URL}/secretarias/`, {
+  return fetchComTratamento(`${BASE_URL}/secretarias/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  });
-  return handleResponse(res, 'Falha ao criar secretaria');
+  }, 'Falha ao criar secretaria');
 }
 
 export async function updateSecretaria(id, payload) {
-  const res = await fetch(`${BASE_URL}/secretarias/${id}`, {
+  return fetchComTratamento(`${BASE_URL}/secretarias/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  });
-  return handleResponse(res, 'Falha ao atualizar secretaria');
+  }, 'Falha ao atualizar secretaria');
 }
 
 export async function toggleSecretaria(id, ativo) {

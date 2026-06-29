@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import PageHeader from '../../components/PageHeader';
 import Icon from '../../components/Icon';
-import { rankingOrgaos } from '../../data/mockOrgaos';
 import {
   fetchSecretarias,
   createSecretaria,
   updateSecretaria,
   toggleSecretaria,
 } from '../../services/secretariasService';
+import { fetchAnalyticsPorSecretaria } from '../../services/m7Service';
 import './Orgaos.css';
 
 const FORM_VAZIO = { nome: '', sigla: '', email: '', categorias: '' };
@@ -47,6 +47,7 @@ export default function Orgaos() {
   const [orgaos, setOrgaos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
+  const [ranking, setRanking] = useState([]);
   const [busca, setBusca] = useState('');
   const [porPagina, setPorPagina] = useState(5);
   const [pagina, setPagina] = useState(1);
@@ -86,6 +87,18 @@ export default function Orgaos() {
       .then(setOrgaos)
       .catch((e) => setErro(e.message))
       .finally(() => setLoading(false));
+
+    fetchAnalyticsPorSecretaria()
+      .then((data) => {
+        const max = Math.max(...data.map((d) => d.total), 1);
+        setRanking(data.slice(0, 5).map((item, i) => ({
+          rank: `${i + 1}°`,
+          nome: item.chave,
+          count: item.total,
+          pct: Math.round((item.total / max) * 100),
+        })));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -169,20 +182,26 @@ export default function Orgaos() {
             <span className="card-head-note">no mês</span>
           </div>
           <ul className="rank-list">
-            {rankingOrgaos.map((o) => (
-              <li key={o.nome} className="rank-row">
-                <span className="rank-pos">{o.rank}</span>
-                <div className="rank-body">
-                  <div className="rank-top">
-                    <span className="rank-nome">{o.nome}</span>
-                    <span className="rank-count tnum">{o.count}</span>
-                  </div>
-                  <div className="rank-track">
-                    <div className="rank-fill" style={{ width: `${o.pct}%` }} />
-                  </div>
-                </div>
+            {ranking.length === 0 ? (
+              <li className="rank-row" style={{ color: 'var(--muted)', fontSize: 13 }}>
+                Sem dados de encaminhamento ainda.
               </li>
-            ))}
+            ) : (
+              ranking.map((o) => (
+                <li key={o.nome} className="rank-row">
+                  <span className="rank-pos">{o.rank}</span>
+                  <div className="rank-body">
+                    <div className="rank-top">
+                      <span className="rank-nome">{o.nome}</span>
+                      <span className="rank-count tnum">{o.count}</span>
+                    </div>
+                    <div className="rank-track">
+                      <div className="rank-fill" style={{ width: `${o.pct}%` }} />
+                    </div>
+                  </div>
+                </li>
+              ))
+            )}
           </ul>
         </div>
 

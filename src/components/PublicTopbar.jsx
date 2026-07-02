@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import Icon from './Icon';
+import Logo from './Logo';
 import './PublicTopbar.css';
 
-// Barra superior do portal público (Conecta Recife).
+// Barra superior do portal público (Prisma Recife).
 // - `accessibility`: mostra a faixa de acessibilidade acima da navegação
 // - `center`: bloco de navegação central (opcional)
 // - `actions`: ações à direita (opcional)
@@ -24,9 +25,11 @@ export default function PublicTopbar({ accessibility = false, center, actions, s
 
       <nav className={`pub-topbar ${subtitle ? 'is-tall' : ''}`}>
         <Link to="/portal" className="pub-brand">
-          <span className="pub-brand-mark" aria-hidden="true">CR</span>
+          <span className="pub-brand-mark" aria-hidden="true">
+            <Logo width={26} height={26} />
+          </span>
           <span className="pub-brand-text">
-            <strong>Conecta Recife</strong>
+            <strong>Prisma Recife</strong>
             {subtitle && <small>Tratamento Inteligente de Denúncias</small>}
           </span>
         </Link>

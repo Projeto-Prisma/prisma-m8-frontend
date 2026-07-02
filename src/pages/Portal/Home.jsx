@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import PublicTopbar from '../../components/PublicTopbar';
 import Icon from '../../components/Icon';
+import Logo from '../../components/Logo';
 import './Home.css';
 
 // Itens do "fluxo em tempo real" exibidos no card do hero.
@@ -164,8 +165,10 @@ export default function Home() {
       {/* Rodapé */}
       <footer className="home-footer">
         <div className="home-footer-brand">
-          <span className="home-footer-mark" aria-hidden="true">CR</span>
-          <span>Conecta Recife · Prefeitura Municipal do Recife</span>
+          <span className="home-footer-mark" aria-hidden="true">
+            <Logo width={20} height={20} />
+          </span>
+          <span>Prisma Recife · Prefeitura Municipal do Recife</span>
         </div>
         <span className="home-footer-note">Projeto acadêmico — Sistemas Distribuídos · UFRPE</span>
       </footer>
